@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS 클라우드 모니터링 어드민</title>
+    <style>
+        /* 1. 전체 리셋과 기본 설정 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box; /* 패딩과 보더를 너비에 포함 */
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        /* 2. 헤더 스타일 */
+        .header {
+            background: linear-gradient(135deg, #232f3e, #ff9900); /* AWS 색상 그라데이션 */
+            color: white;
+            padding: 1rem 2rem;
+            position: fixed; /* 화면에 고정 */
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000; /* 다른 요소보다 위에 표시 */
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        /* 3. 메인 컨테이너 - Flexbox 사용 */
+        .container {
+            display: flex;
+            margin-top: 70px; /* 헤더 높이만큼 여백 */
+            min-height: calc(100vh - 70px);
+        }
+
+        /* 4. 사이드바 */
+        .sidebar {
+            width: 250px;
+            background-color: white;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            padding: 2rem 0;
+        }
+
+        .sidebar ul {
+            list-style: none; /* 기본 리스트 점 제거 */
+        }
+
+        .sidebar li {
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar a {
+            display: block;
+            padding: 1rem 2rem;
+            text-decoration: none; /* 밑줄 제거 */
+            color: #666;
+            transition: all 0.3s ease; /* 부드러운 전환 효과 */
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar a:hover, .sidebar a.active {
+            background-color: #f8f9fa;
+            color: #ff9900;
+            border-left-color: #ff9900;
+            transform: translateX(5px); /* 호버 시 오른쪽으로 살짝 이동 */
+        }
+
+        /* 5. 메인 콘텐츠 영역 */
+        .main-content {
+            flex: 1; /* 남은 공간 모두 차지 */
+            padding: 2rem;
+            background-color: #f5f7fa;
+        }
+
+        /* 6. 대시보드 그리드 */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* 반응형 그리드 */
+            gap: 2rem; /* 그리드 간격 */
+            margin-bottom: 2rem;
+        }
+
+        /* 7. 카드 컴포넌트 */
+        .card {
+            background: white;
+            border-radius: 12px; /* 모서리 둥글게 */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            padding: 1.5rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px); /* 호버 시 위로 살짝 올라감 */
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between; /* 양 끝 정렬 */
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        /* 8. 상태 배지 */
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .status-running {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .status-stopped {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        /* 9. 메트릭 표시 */
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        /* 10. 프로그레스 바 */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.3s ease;
+        }
+
+        /* 11. 인스턴스 테이블 */
+        .instances-table {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            overflow: hidden; /* 테이블이 카드 모서리를 넘지 않도록 */
+        }
+
+        .table-header {
+            background-color: #f8f9fa;
+            padding: 1.5rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse; /* 테이블 경계선 합치기 */
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        /* 12. 반응형 디자인 */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column; /* 모바일에서 세로 배치 */
+            }
+            
+            .sidebar {
+                width: 100%;
+                order: 2; /* 사이드바를 아래로 */
+            }
+            
+            .main-content {
+                order: 1;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr; /* 모바일에서 한 열로 */
+            }
+        }
+
+        /* 13. 유틸리티 클래스 */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .mb-1 { margin-bottom: 0.5rem; }
+        .mb-2 { margin-bottom: 1rem; }
+        .text-success { color: #28a745; }
+        .text-danger { color: #dc3545; }
+        .text-warning { color: #ffc107; }
+
+        /* 14. 애니메이션 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card {
+            animation: fadeInUp 0.6s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <!-- 헤더 -->
+    <header class="header">
+        <h1>🏢 AWS 클라우드 모니터링 시스템</h1>
+    </header>
+
+    <div class="container">
+        <!-- 사이드바 네비게이션 -->
+        <nav class="sidebar">
+            <ul>
+                <li><a href="#" class="active">📊 대시보드</a></li>
+                <li><a href="#">💻 EC2 인스턴스</a></li>
+                <li><a href="#">🗄️ RDS 데이터베이스</a></li>
+                <li><a href="#">📈 CloudWatch</a></li>
+                <li><a href="#">🔧 오토스케일링</a></li>
+                <li><a href="#">🔐 보안 그룹</a></li>
+                <li><a href="#">💰 비용 관리</a></li>
+                <li><a href="#">⚙️ 설정</a></li>
+            </ul>
+        </nav>
+
+        <!-- 메인 콘텐츠 -->
+        <main class="main-content">
+            <!-- 대시보드 카드들 -->
+            <div class="dashboard-grid">
+                <!-- 총 인스턴스 카드 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">총 인스턴스</h3>
+                        <span class="status-badge status-running">활성</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">실행 중</span>
+                        <span class="metric-value text-success">12대</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">중지됨</span>
+                        <span class="metric-value text-danger">3대</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">총합</span>
+                        <span class="metric-value">15대</span>
+                    </div>
+                </div>
+
+                <!-- CPU 사용률 카드 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">평균 CPU 사용률</h3>
+                        <span class="status-badge status-warning">주의</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">현재</span>
+                        <span class="metric-value">73.5%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 73.5%"></div>
+                    </div>
+                </div>
+
+                <!-- 메모리 사용률 카드 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">평균 메모리 사용률</h3>
+                        <span class="status-badge status-running">정상</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">현재</span>
+                        <span class="metric-value">45.2%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 45.2%"></div>
+                    </div>
+                </div>
+
+                <!-- 월간 비용 카드 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">이번 달 예상 비용</h3>
+                        <span class="status-badge status-running">예산 내</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">현재까지</span>
+                        <span class="metric-value">$1,247.32</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">예상 총액</span>
+                        <span class="metric-value">$2,150.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 인스턴스 목록 테이블 -->
+            <div class="instances-table">
+                <div class="table-header">
+                    <h3>EC2 인스턴스 목록</h3>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>인스턴스 ID</th>
+                            <th>이름</th>
+                            <th>상태</th>
+                            <th>타입</th>
+                            <th>IP 주소</th>
+                            <th>CPU</th>
+                            <th>메모리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>i-0123456789abcdef0</td>
+                            <td>웹서버-01</td>
+                            <td><span class="status-badge status-running">실행중</span></td>
+                            <td>t3.medium</td>
+                            <td>3.35.123.45</td>
+                            <td class="text-warning">85%</td>
+                            <td class="text-success">42%</td>
+                        </tr>
+                        <tr>
+                            <td>i-0fedcba9876543210</td>
+                            <td>데이터베이스-01</td>
+                            <td><span class="status-badge status-running">실행중</span></td>
+                            <td>r5.large</td>
+                            <td>3.35.123.46</td>
+                            <td class="text-success">35%</td>
+                            <td class="text-warning">78%</td>
+                        </tr>
+                        <tr>
+                            <td>i-0abcdef123456789</td>
+                            <td>백업서버-01</td>
+                            <td><span class="status-badge status-stopped">중지됨</span></td>
+                            <td>t3.small</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>i-0987654321abcdef</td>
+                            <td>로드밸런서-01</td>
+                            <td><span class="status-badge status-running">실행중</span></td>
+                            <td>c5.large</td>
+                            <td>3.35.123.47</td>
+                            <td class="text-success">28%</td>
+                            <td class="text-success">31%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // 간단한 JavaScript 인터랙션
+        document.addEventListener('DOMContentLoaded', function() {
+            // 사이드바 메뉴 클릭 이벤트
+            const sidebarLinks = document.querySelectorAll('.sidebar a');
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // 모든 링크에서 active 클래스 제거
+                    sidebarLinks.forEach(l => l.classList.remove('active'));
+                    // 클릭된 링크에 active 클래스 추가
+                    this.classList.add('active');
+                });
+            });
+
+            // 카드 호버 효과를 위한 추가 상호작용
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-5px) scale(1.02)';
+                });
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0) scale(1)';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
